@@ -8,66 +8,80 @@ import sys
 from xml.dom.minidom import Document
 import json
 from mlagents.envs.environment import UnityEnvironment
-from utils import * 
+from utils import *
 
 parser = argparse.ArgumentParser(description='outputs')
-parser.add_argument('--setting',default='./settings/VeRi-out-final.json',type=str, help='./target dataset and attribute definition')
-parser.add_argument('--train_mode',type=str2bool, nargs='?',
-                        const=True, default=False, help="Whether to run the environment in training or inference mode")
+parser.add_argument('--setting', default='./settings/VeRi-out-final.json',
+                    type=str, help='./target dataset and attribute definition')
+parser.add_argument('--train_mode', type=str2bool, nargs='?',
+                    const=True, default=False, help="Whether to run the environment in training or inference mode")
 parser.add_argument('--env_path', type=str, default='./Build-win/VehicleX')
 parser.add_argument('--out_lab_file', type=str, default='VeRi_label.xml')
 
 opt = parser.parse_args()
-env_name = opt.env_path # is ./Build-linux/VehicleX if linux is used
-train_mode = opt.train_mode  # Whether to run the environment in training or inference mode
+env_name = opt.env_path  # is ./Build-linux/VehicleX if linux is used
+# Whether to run the environment in training or inference mode
+train_mode = opt.train_mode
 
 print("Python version:")
 print(sys.version)
 
 # check Python version
 if (sys.version_info[0] < 3):
-    raise Exception("ERROR: ML-Agents Toolkit (v0.3 onwards) requires Python 3")
+    raise Exception(
+        "ERROR: ML-Agents Toolkit (v0.3 onwards) requires Python 3")
 if (not os.path.exists("./Background_imgs") and train_mode == False):
     raise Exception("The inference mode requre background images")
 
 # env = UnityEnvironment(file_name=None)
-env = UnityEnvironment(file_name=env_name) # is None if you use Unity Editor
+env = UnityEnvironment(file_name=env_name)  # is None if you use Unity Editor
 # Set the default brain to work with
 
 default_brain = env.brain_names[0]
 brain = env.brains[default_brain]
 distance_bias = 12.11
 
-print ("Begin generation")
+print("Begin generation")
 
 doc = Document()
 TrainingImages = doc.createElement('TrainingImages')
-TrainingImages.setAttribute("Version", "1.0")  
+TrainingImages.setAttribute("Version", "1.0")
 doc.appendChild(TrainingImages)
 Items = doc.createElement('Items')
-Items.setAttribute("number", "-")  
+Items.setAttribute("number", "-")
 TrainingImages.appendChild(Items)
 
+
 def get_save_images_by_attributes(attribute_list, control_list, cam_id, dataset_size, output_dir):
-    if not os.path.isdir(output_dir):  
+    if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     z = 0
     cnt = 0
-    angle = np.random.permutation (ancestral_sampler_fix_sigma(mu = attribute_list[:6], size=dataset_size * 3))
-    temp_intensity_list = np.random.normal(loc=attribute_list[6], scale=np.sqrt(0.4), size=dataset_size * 3)  
-    temp_light_direction_x_list = np.random.normal(loc=attribute_list[7], scale=np.sqrt(50), size=dataset_size * 3)
-    Cam_height_list = np.random.normal(loc=attribute_list[8], scale=2, size=dataset_size * 3) 
-    Cam_distance_y_list = np.random.normal(loc=attribute_list[9], scale=3, size=dataset_size * 3) 
+    angle = np.random.permutation(ancestral_sampler_fix_sigma(
+        mu=attribute_list[:6], size=dataset_size * 3))
+    temp_intensity_list = np.random.normal(
+        loc=attribute_list[6], scale=np.sqrt(0.4), size=dataset_size * 3)
+    temp_light_direction_x_list = np.random.normal(
+        loc=attribute_list[7], scale=np.sqrt(50), size=dataset_size * 3)
+    Cam_height_list = np.random.normal(
+        loc=attribute_list[8], scale=2, size=dataset_size * 3)
+    Cam_distance_y_list = np.random.normal(
+        loc=attribute_list[9], scale=3, size=dataset_size * 3)
     cam_str = "c" + str(cam_id).zfill(3)
     env_info = env.reset(train_mode=True)[default_brain]
     images = []
+
     while cnt < dataset_size:
         done = False
         angle[z] = angle[z] % 360
-        temp_intensity_list[z] = min(max(min(control_list[6]), temp_intensity_list[z]), max(control_list[6]))
-        temp_light_direction_x_list[z] = min(max(min(control_list[7]), temp_light_direction_x_list[z]), max(control_list[7]))
-        Cam_height_list[z] = min(max(min(control_list[8]), Cam_height_list[z]), max(control_list[8]))
-        Cam_distance_y_list[z] = min(max(min(control_list[9]), Cam_distance_y_list[z]), max(control_list[9]))
+        temp_intensity_list[z] = min(
+            max(min(control_list[6]), temp_intensity_list[z]), max(control_list[6]))
+        temp_light_direction_x_list[z] = min(
+            max(min(control_list[7]), temp_light_direction_x_list[z]), max(control_list[7]))
+        Cam_height_list[z] = min(
+            max(min(control_list[8]), Cam_height_list[z]), max(control_list[8]))
+        Cam_distance_y_list[z] = min(
+            max(min(control_list[9]), Cam_distance_y_list[z]), max(control_list[9]))
         Cam_distance_x = random.uniform(-5, 5)
         scene_id = random.randint(1,59) 
         env_info = env.step([[angle[z], temp_intensity_list[z], temp_light_direction_x_list[z], Cam_distance_y_list[z], Cam_distance_x, Cam_height_list[z], scene_id, train_mode]])[default_brain] 

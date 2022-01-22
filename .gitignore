@@ -1,0 +1,5 @@
+Background_imgs/
+.venv
+__pycache__
+Gen_img/
+Build*
