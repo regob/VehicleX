@@ -2,6 +2,7 @@ import numpy as np
 import json
 import random
 import argparse
+import time
 
 
 def write_json(json_path, cam_info, attribute_list, task_info, best_score):
@@ -63,6 +64,45 @@ def get_color_distribution(id_num, model_num):
 
 def get_random_color():
     return tuple([float(random.randint(0, 255)) / 255 for i in range(3)])
+    
+# 0 yellow
+# 1 orange
+# 2 green
+# 3 gray
+# 4 red
+# 5 blue
+# 6 white
+# 7 golden
+# 8 brown
+# 9 black
+# 10 purple
+# 11 pink
+
+color_to_rgb = {
+    0: [(255, 201, 31), (255, 207, 32), (251, 226, 18), (224, 225, 61)],
+    1: [(247, 134, 22), (249, 164, 88), (246, 174, 32), (247, 134, 22)],
+    2: [(21, 92, 45), (102, 184, 31), (29, 56, 62), (69, 89, 75), (131, 197, 102),
+        (78, 100, 67), (176, 238, 110)],
+    3: [(151, 154, 151), (69, 75, 79), (60, 63, 71), (38, 40, 42), (51, 58, 60),
+        (54, 58, 63), (160, 161, 153)],
+    4: [(192, 14, 26), (218, 25, 24), (123, 26, 34), (73, 17, 29), (182, 15, 37),
+        (115, 32, 33), (222, 15, 24), (169, 71, 68)],
+    5: [(175, 214, 228), (27, 103, 112), (34, 46, 70), (48, 76, 126), (35, 49, 85),
+        (99, 123, 167), (57, 71, 98), (11, 156, 241), (17, 37, 82)],
+    6: [(255, 255, 246), (234, 234, 234), (223, 221, 208), (252, 249, 241)],
+    7: [(218,165,32), (184,134,11), (255,215,0), (194, 148, 79)],
+    8: [(101, 63, 35), (34, 27, 25), (119, 92, 62), (64, 46, 43), (58, 42, 27),
+        (181, 160, 121), (69, 56, 49)],
+    9: [(10, 12, 23), (13, 17, 22), (10, 10, 10), (28, 29, 33)],
+    10:[(98, 18, 118), (107, 31, 123)],
+    11:[(242, 31, 153), (223, 88, 145), (253, 214, 205)]
+}
+
+def get_color_by_id(color_id):
+    if color_id not in color_to_rgb:
+        raise ValueError("Bad color_id")
+    rgb_uint = random.sample(color_to_rgb[color_id], 1)[0]
+    return tuple(map(lambda x: float(x) / 255, rgb_uint))
 
 
 def get_cam_attr(cam_info):
