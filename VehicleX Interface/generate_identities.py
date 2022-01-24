@@ -12,13 +12,13 @@ from tqdm import tqdm
 
 
 parser = argparse.ArgumentParser(
-    description="Generate images of a given type_id or car_id or color_id, any property not given is generated randomly")
+    description="Generate vehicle identities, with multiple (img_per_identity) images per vehicle.")
 parser.add_argument("--env_path", type=str,
                     default="./Build-linux/VehicleX.x86_64")
 parser.add_argument("--out_dir", type=str, required=True,
                     help="where to save generated images, REQUIRED")
-parser.add_argument("--n_images", type=int, required=True,
-                    help="how many images to generate, REQUIRED")
+parser.add_argument("--n_identities", type=int, required=True,
+                    help="how many identities to generate, REQUIRED")
 parser.add_argument("--car_id", type=int,
                     help="Vehicle model id, integer in range of [1, 177]")
 parser.add_argument("--type_id", type=int, help="""
@@ -52,8 +52,10 @@ Vehicle color id from the following values:
 11 pink
 """)
 
-parser.add_argument("--discrete_color", type=bool, default=True,
+parser.add_argument("--discrete_color", type=bool, default=False,
     help="whether to use one of the 11 default colors or random RGB, only in effect if color_id parameter is not provided.")
+parser.add_argument("--img_per_identity", type=int, required=True,
+    help="the number of images to generate for each identity, REQUIRED")
 opt = parser.parse_args()
 
 
@@ -66,18 +68,23 @@ if (opt.car_id is not None and opt.car_id not in range(1, 178)) or \
     print("Error: car_id, color_id or type_id in wrong interval, check usage info.")
     sys.exit(1)
 
-if opt.n_images < 1:
-    print("Error: n_images < 1")
+if opt.n_identities < 1:
+    print("Error: n_identities < 1")
     sys.exit(1)
+    
+if opt.img_per_identity < 1:
+    print("Error: img_per_identity < 1")
+    sys.exit(2)
 
 
 train_mode = False
 env = UnityEnvironment(file_name=opt.env_path, timeout_wait=180)
 default_brain = env.brain_names[0]
 
-N_IMAGES = opt.n_images
+N_IDS = opt.n_identities
 n_generated = 0
 CNT_INIT = len(os.listdir(opt.out_dir))
+
 
 env_info = env.reset(train_mode=False)[default_brain]
 intensity_range = (0.0, 3.0)
@@ -89,7 +96,10 @@ scene_id_range = (1, 59)
 
 N_BATCH = 100
 q = N_BATCH
-pbar = tqdm(total=N_IMAGES)
+curr_id = CNT_INIT
+curr_cnt = opt.img_per_identity
+pbar = tqdm(total=N_IDS*opt.img_per_identity)
+
 while True:
     if q >= N_BATCH:
         q = 0
@@ -115,26 +125,30 @@ while True:
         camera_distance_x_range[0], camera_distance_x_range[1])
     scene_id = random.randint(scene_id_range[0], scene_id_range[1])
 
-    if opt.color_id is not None:
-        color_id = opt.color_id
-        color_R, color_G, color_B = get_color_by_id(color_id)
-    elif opt.discrete_color:
-        color_id = random.randint(0, 11)
-        color_R, color_G, color_B = get_color_by_id(color_id)
-    else:
-        color_id = -1
-        color_R, color_G, color_B = get_random_color()
+
+    if curr_cnt >= opt.img_per_identity:
+        curr_cnt = 0
+        curr_id += 1  
+        if opt.color_id is not None:
+            color_id = opt.color_id
+            color_R, color_G, color_B = get_color_by_id(color_id)
+        elif opt.discrete_color:
+            color_id = random.randint(0, 11)
+            color_R, color_G, color_B = get_color_by_id(color_id)
+        else:
+            color_id = -1
+            color_R, color_G, color_B = get_random_color()
         
-    if opt.car_id is not None:
-        model_id = opt.car_id
-    elif opt.type_id is not None:
-        model_id = get_random_car_by_type(opt.type_id)
-    else:
-        model_id = random.randint(1, 177)
+        if opt.car_id is not None:
+            model_id = opt.car_id
+        elif opt.type_id is not None:
+            model_id = get_random_car_by_type(opt.type_id)
+        else:
+            model_id = random.randint(1, 177)
         
-    # model 130 is bugged (comes only in green color)
-    while model_id == 130 and opt.car_id != 130:
-        model_id = random.randint(1, 177)
+        # model 130 is bugged (comes only in green color)
+        while model_id == 130 and opt.car_id != 130:
+            model_id = random.randint(1, 177)
             
 
     env_info = env.step([[model_id, angle[q], temp_intensity_list[q], temp_light_direction_x_list[q],
@@ -153,10 +167,6 @@ while True:
 
     # print(f"car_id:{car_id}, type_id:{type_id}, color_id:{color_id}")
 
-    if (opt.car_id is not None and car_id != opt.car_id) or \
-       (opt.type_id is not None and type_id != opt.type_id):
-        continue
-
     observation_gray = np.array(env_info.visual_observations[1])
     x, y = (observation_gray[0, :, :, 0] > 0).nonzero()
     observation = np.array(env_info.visual_observations[0])
@@ -165,14 +175,13 @@ while True:
         ori_img = observation[0, min(
             x) - 10:max(x) + 10, min(y) - 10:max(y) + 10, :]
 
-        filename = "{}_{}_{}_{}.jpg".format(
-            color_id if color_id >= 0 else "X", type_id, car_id, CNT_INIT + n_generated)
+        filename = "{}_{}_{}_{}_{}.jpg".format(
+            color_id if color_id >= 0 else "X", type_id, car_id, curr_id, curr_cnt)
         io.imsave(os.path.join(opt.out_dir, filename), img_as_ubyte(ori_img))
 
+        curr_cnt += 1
         n_generated += 1
         pbar.update(1)
         # print("----> Good images: {}".format(n_generated))
-        if n_generated >= N_IMAGES:
+        if n_generated >= N_IDS*opt.img_per_identity:
             break
-
-        #img = Image.fromarray(ori_img).convert("RGB")
